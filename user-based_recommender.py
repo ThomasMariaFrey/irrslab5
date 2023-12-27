@@ -1,75 +1,55 @@
 import pandas as pd
 import numpy as np
-
-import similarity as sim
-import naive_recommender as nav
-import utils as ut
+from utils import load_dataset_from_source, split_users
+from similarity import compute_similarity_matrix
 
 
-def generate_m(movies_idx, users, ratings):
-    # Complete the datastructure for rating matrix 
-    # @TODO 
-    
-    m = None
-    
-    return m 
+def generate_m(ratings):
+    # Create the user-item matrix where each row corresponds to a user and each column to a movie.
+    M = pd.pivot_table(ratings, index='userId', columns='movieId', values='rating')
+    return M
 
 
-def user_based_recommender(target_user_idx, matrix):
-    target_user = matrix.iloc[target_user_idx]
-    recommendations = []
-    
-    # Compute the similarity between  the target user and each other user in the matrix. 
-    # We recomend to store the results in a dataframe (userId and Similarity)
-    # @TODO 
+def user_based_recommender(target_user, M, users_similarity_matrix, k=10):
+    # Find the k most similar users to the target user
+    similarities = users_similarity_matrix[target_user]
+    most_similar_users = similarities.nlargest(k + 1).iloc[1:]  # excluding self-comparison
 
-    
-    # Determine the unseen movies by the target user. Those films are identfied 
-    # since don't have any rating. 
-    # @TODO 
-     
-    # Generate recommendations for unrated movies based on user similarity and ratings.
-    # @ TODO 
-    
-    return recommendations
+    # Predict the interest for the target user based on similar users
+    recommendations = {}
+    for movie in M.columns:
+        if np.isnan(M.loc[target_user, movie]):  # only predict for movies the target user hasn't rated
+            weighted_sum = 0
+            sim_sum = 0
+            for similar_user in most_similar_users.index:
+                if not np.isnan(M.loc[similar_user, movie]):
+                    weighted_sum += most_similar_users[similar_user] * (
+                                M.loc[similar_user, movie] - M.loc[similar_user].mean())
+                    sim_sum += most_similar_users[similar_user]
 
+            if sim_sum != 0:
+                predicted_rating = M.loc[target_user].mean() + (weighted_sum / sim_sum)
+                recommendations[movie] = predicted_rating
+
+    # Sort the movies based on the predicted rating
+    sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
+
+    # Return the top k recommended movies
+    return sorted_recommendations[:k]
 
 
 if __name__ == "__main__":
-    
-    # Load the dataset
-    path_to_ml_latest_small = '/home/albert/Projects/practica_recomenders/ml-latest-small/'
-    dataset = ut.load_dataset_from_source(path_to_ml_latest_small)
+    path_to_data = 'ml-latest-small'
+    dataset = load_dataset_from_source(path_to_data)
 
-    # Ratings data
-    val_movies = 5
-    ratings_train, ratings_val = ut.split_users(dataset["ratings.csv"], val_movies)
+    ratings, movies = dataset["ratings.csv"], dataset["movies.csv"]
+    M = generate_m(ratings)
 
-    # Create matrix between user and movies 
-    movies_idx = dataset["movies.csv"]["movieId"]
-    users_idy = list(set(ratings_train["userId"].values))
-    m = generate_m(movies_idx, users_idy, ratings_train)
-        
-    # user-to-user similarity
-    target_user_idx = 123
-    recommendations = user_based_recommender(target_user_idx, m)
-     
-    # The following code print the top 5 recommended films to the user
-    for recomendation in recommendations[:5]:
-        rec_movie = dataset["movies.csv"][dataset["movies.csv"]["movieId"]  == recomendation[0]]
-        print (" Recomendation :Movie:{} (Genre: {})".format(rec_movie["title"].values[0], rec_movie["genres"].values[0]))
+    # Assume that split_users and compute_similarity functions are defined in utils.py and similarity.py respectively
+    train, test = split_users(ratings)
+    users_similarity_matrix = compute_similarity_matrix(train)
 
-    
-    # Validation
-    matrixmpa_genres = ut.matrix_genres(dataset["movies.csv"])
-    
-     
-    
-
-
-
-
-
-
-
-
+    # Choose a target user for demonstration (this should be part of the validation process)
+    target_user = 1
+    top_k_recommendations = user_based_recommender(target_user, M, users_similarity_matrix)
+    print(top_k_recommendations)

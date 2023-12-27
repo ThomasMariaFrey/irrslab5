@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import cosine
 
 def compute_similarity_matrix(ratings):
     # Create a user-item matrix
@@ -17,6 +18,11 @@ def compute_similarity_matrix(ratings):
 
     return similarity_df
 
+
+def compute_similarity(vector1, vector2):
+    # Calculate cosine similarity, which is 1 minus the cosine distance
+    similarity = 1 - cosine(vector1, vector2)
+    return similarity
 
 def cosine_similarity(matrix):
     # Normalize the matrix rows to unit (L2) norm

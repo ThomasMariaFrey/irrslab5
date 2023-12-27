@@ -25,8 +25,6 @@ def naive_recommender(ratings: object, movies:object, k: int = 10) -> list:
 
     # Return the top k movies
     return most_seen_movies.head(k)
- 
-    return most_seen_movies[:k]
 
 
 if __name__ == "__main__":
